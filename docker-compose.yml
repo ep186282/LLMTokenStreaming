@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: token_streamer
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d token_streamer"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - token-streamer-data:/var/lib/postgresql/data
+
+volumes:
+  token-streamer-data:
