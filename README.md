@@ -2,13 +2,13 @@
 
 Production LLM applications need low-latency token delivery without making generation reliability depend on one long-lived HTTP request. In a conventional stream, a broken browser connection cannot request only the missing suffix. Regenerating repeats the full latency and output-token cost, and sampling may produce a different answer.
 
-This project makes token streaming disconnect-tolerant by separating generation from delivery. The server runs each generation in an independent task and records every provider delta in an ordered PostgreSQL log. A browser can disconnect, reload, or attach from another tab, then resume from its last sequence without starting another provider request.
-
 **Example of this project's fault tolerance under repeated simulated client-side connection failures.**
 
-https://github.com/user-attachments/assets/28cb8d47-1b89-4fd5-8b2c-2d41629cf1a2
+![Disconnect and reconnect fault-tolerance demo](./demo/token_streaming_demo.gif)
 
 ![Durable generation and resumable token delivery architecture](./demo/diagram.png)
+
+This project makes token streaming disconnect-tolerant by separating generation from delivery. The server runs each generation in an independent task and records every provider delta in an ordered PostgreSQL log. A browser can disconnect, reload, or attach from another tab, then resume from its last sequence without starting another provider request.
 
 ## Overview
 
@@ -19,6 +19,8 @@ The system has three independent parts:
 - each attached browser reads that sequence through Server-Sent Events.
 
 The browser includes a **Turn off connection** control. It aborts the real streaming fetch and parks the reconnect loop. Nothing on the server knows this control exists. The generator keeps writing while no reader is attached.
+
+https://github.com/user-attachments/assets/28cb8d47-1b89-4fd5-8b2c-2d41629cf1a2
 
 Turning the connection back on attaches with the last in-memory cursor. A backlog of at most `SNAPSHOT_THRESHOLD` rows, 50 by default, arrives as individual chunk events. A larger backlog arrives in one snapshot, so the answer reaches the live edge in one render.
 
