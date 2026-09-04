@@ -17,7 +17,7 @@ def test_settings_defaults() -> None:
     assert settings.database_url == (
         "postgres://postgres:postgres@localhost:5432/token_streamer"
     )
-    assert settings.model == "openai/gpt-4o-mini"
+    assert settings.model == "google/gemini-3.5-flash-lite"
     assert settings.openrouter_api_key == "test-key"
     assert settings.openrouter_base_url == "https://openrouter.ai/api/v1"
     assert settings.flush_max_deltas == 1

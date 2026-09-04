@@ -6,7 +6,7 @@ This project makes token streaming disconnect-tolerant by separating generation 
 
 **Example of this project's fault tolerance under repeated simulated client-side connection failures.**
 
-https://github.com/user-attachments/assets/0cf6a09a-cc3f-40c0-84cf-d819a0f2aa5a
+https://github.com/user-attachments/assets/28cb8d47-1b89-4fd5-8b2c-2d41629cf1a2
 
 ## Overview
 

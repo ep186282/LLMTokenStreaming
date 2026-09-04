@@ -38,6 +38,21 @@ describe("sequenced event reducer", () => {
     expect(duplicate.text).toBe("A");
     expect(duplicate.cursor).toBe(1);
     expect(duplicate.duplicatesDropped).toBe(1);
+    expect(duplicate.deliveredPayloads).toEqual([
+      { from: 1, to: 1, kind: "chunk", text: "A" },
+    ]);
+  });
+
+  it("records consecutive chunk frames without inferring a snapshot", () => {
+    let state = attachedState();
+
+    state = applySequencedEvent(state, 1, delta("A"));
+    state = applySequencedEvent(state, 2, delta("B"));
+
+    expect(state.deliveredPayloads).toEqual([
+      { from: 1, to: 1, kind: "chunk", text: "A" },
+      { from: 2, to: 2, kind: "chunk", text: "B" },
+    ]);
   });
 
   it("requests a reconnect on a gap without moving the cursor", () => {
@@ -64,6 +79,10 @@ describe("sequenced event reducer", () => {
     expect(next.text).toBe("ABC");
     expect(next.cursor).toBe(3);
     expect(next.duplicatesDropped).toBe(1);
+    expect(next.deliveredPayloads).toEqual([
+      { from: 1, to: 1, kind: "chunk", text: "A" },
+      { from: 2, to: 3, kind: "snapshot", text: "BC" },
+    ]);
   });
 
   it("leaves text and cursor unchanged when a snapshot has a gap", () => {

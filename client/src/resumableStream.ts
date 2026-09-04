@@ -31,12 +31,20 @@ export interface SnapshotPayload {
   events: SnapshotEvent[];
 }
 
+export interface DeliveredPayload {
+  from: number;
+  to: number;
+  kind: "chunk" | "snapshot";
+  text: string;
+}
+
 export interface GenerationState {
   phase: GenerationPhase;
   generationId: string | null;
   idempotencyKey: string | null;
   text: string;
   cursor: number;
+  deliveredPayloads: DeliveredPayload[];
   reconnectCount: number;
   duplicatesDropped: number;
   gapsSeen: number;
@@ -73,6 +81,7 @@ const DEFAULT_API_BASE_URL = "http://localhost:8000";
 const DEFAULT_WATCHDOG_MS = 30_000;
 const RETRY_BASE_MS = 250;
 const RETRY_CAP_MS = 5_000;
+const MAX_DELIVERED_PAYLOADS = 24;
 
 const terminalPhases = new Set<GenerationPhase>([
   "completed",
@@ -90,6 +99,7 @@ export function createInitialGenerationState(
     idempotencyKey: null,
     text: "",
     cursor: 0,
+    deliveredPayloads: [],
     reconnectCount: 0,
     duplicatesDropped: 0,
     gapsSeen: 0,
@@ -179,10 +189,17 @@ export function applySequencedEvent(
     return markGap(state);
   }
 
+  const text = textDeltaForEvent(event);
   const next = {
     ...state,
-    text: state.text + textDeltaForEvent(event),
+    text: state.text + text,
     cursor: seq,
+    deliveredPayloads: appendDeliveredPayload(state.deliveredPayloads, {
+      from: seq,
+      to: seq,
+      kind: "chunk",
+      text,
+    }),
   };
   return applyDeferredTerminalIfReady(next);
 }
@@ -239,8 +256,24 @@ export function applySnapshot(
     text: state.text + appendedText,
     cursor,
     duplicatesDropped: state.duplicatesDropped + duplicateCount,
+    deliveredPayloads:
+      cursor > state.cursor
+        ? appendDeliveredPayload(state.deliveredPayloads, {
+            from: state.cursor + 1,
+            to: cursor,
+            kind: "snapshot",
+            text: appendedText,
+          })
+        : state.deliveredPayloads,
   };
   return applyDeferredTerminalIfReady(next);
+}
+
+function appendDeliveredPayload(
+  payloads: DeliveredPayload[],
+  payload: DeliveredPayload,
+): DeliveredPayload[] {
+  return [...payloads, payload].slice(-MAX_DELIVERED_PAYLOADS);
 }
 
 export function applyTerminalEvent(
@@ -783,6 +816,7 @@ export class ResumableGeneration {
             phase: "reconnecting",
             text: "",
             cursor: 0,
+            deliveredPayloads: [],
             terminal: null,
             terminalMetadata: null,
             deferredTerminal: null,

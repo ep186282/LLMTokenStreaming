@@ -94,7 +94,7 @@ class Settings:
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY is required")
 
-        model = env.get("MODEL", "openai/gpt-4o-mini").strip()
+        model = env.get("MODEL", "google/gemini-3.5-flash-lite").strip()
         if not model:
             raise ValueError("MODEL must not be empty")
 

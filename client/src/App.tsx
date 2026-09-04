@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   isTerminalPhase,
+  type DeliveredPayload,
   type GenerationPhase,
 } from "./resumableStream";
 import { useGeneration } from "./useGeneration";
@@ -37,11 +38,6 @@ export default function App() {
   const previousPhase = useRef(state.phase);
   const answerRef = useRef<HTMLDivElement>(null);
   const payloadLogRef = useRef<HTMLDivElement>(null);
-  const lastCursorRef = useRef(0);
-  const lastTextLenRef = useRef(0);
-  const [payloads, setPayloads] = useState<
-    { from: number; to: number; kind: "chunk" | "snapshot"; text: string }[]
-  >([]);
 
   const debugVisible = useMemo(
     () => new URLSearchParams(window.location.search).get("debug") !== "0",
@@ -49,6 +45,7 @@ export default function App() {
   );
   const displayPhase = isRestoring ? "starting" : state.phase;
   const isActive = activePhases.has(state.phase) || isRestoring;
+  const payloads = state.deliveredPayloads;
   const canSubmit = (submittedPrompt || prompt).trim().length > 0 && !isActive;
   const connectionDisrupted =
     !state.connectionEnabled || displayPhase === "reconnecting";
@@ -65,37 +62,6 @@ export default function App() {
     }
     previousPhase.current = state.phase;
   }, [state.phase]);
-
-  useEffect(() => {
-    if (state.cursor < lastCursorRef.current || state.phase === "idle") {
-      setPayloads([]);
-      lastCursorRef.current = state.cursor;
-      lastTextLenRef.current = state.text.length;
-      return;
-    }
-
-    if (state.cursor > lastCursorRef.current) {
-      const from = lastCursorRef.current + 1;
-      const to = state.cursor;
-      const fragment = state.text.slice(lastTextLenRef.current);
-      const kind: "chunk" | "snapshot" =
-        to - from + 1 > 1 ? "snapshot" : "chunk";
-      setPayloads((previous) =>
-        [
-          ...previous,
-          {
-            from,
-            to,
-            kind,
-            text: fragment,
-          },
-        ].slice(-24),
-      );
-    }
-
-    lastCursorRef.current = state.cursor;
-    lastTextLenRef.current = state.text.length;
-  }, [state.cursor, state.phase, state.text]);
 
   useEffect(() => {
     const node = answerRef.current;
@@ -285,7 +251,7 @@ function PayloadDock({
   catchupEvents,
   catchupMs,
 }: {
-  payloads: PayloadTick[];
+  payloads: DeliveredPayload[];
   logRef: RefObject<HTMLDivElement | null>;
   debugVisible: boolean;
   cursor: number;
@@ -349,13 +315,6 @@ function PayloadDock({
       )}
     </div>
   );
-}
-
-interface PayloadTick {
-  from: number;
-  to: number;
-  kind: "chunk" | "snapshot";
-  text: string;
 }
 
 function formatPayloadText(value: string): string {
