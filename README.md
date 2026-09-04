@@ -8,6 +8,8 @@ This project makes token streaming disconnect-tolerant by separating generation 
 
 https://github.com/user-attachments/assets/28cb8d47-1b89-4fd5-8b2c-2d41629cf1a2
 
+![Durable generation and resumable token delivery architecture](./demo/diagram.png)
+
 ## Overview
 
 The system has three independent parts:
