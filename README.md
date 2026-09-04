@@ -1,13 +1,10 @@
-# Network-Resilient Token Streaming
+# LLM Token Streaming with Disconnect Tolerance
 
-A conventional streaming chat response depends on one long HTTP request. If the browser loses that connection, it cannot request only the missing suffix. Regenerating repeats the full latency and output-token cost, and sampling may produce a different answer from the one the user was reading.
+Production LLM applications need low-latency token delivery without making generation reliability depend on one long-lived HTTP request. In a conventional stream, a broken browser connection cannot request only the missing suffix. Regenerating repeats the full latency and output-token cost, and sampling may produce a different answer.
 
-This project separates generation from connection. The server runs each generation in its own task and appends every provider delta to an ordered PostgreSQL log. A browser can disconnect, reload, or open the same generation in another tab and resume from the log without starting another provider request.
+This project makes token streaming disconnect-tolerant by separating generation from delivery. The server runs each generation in an independent task and records every provider delta in an ordered PostgreSQL log. A browser can disconnect, reload, or attach from another tab, then resume from its last sequence without starting another provider request.
 
-[View the disconnect and reconnect demo](./demo/token_streaming_demo.mp4)
-
-*Demo: Generation continues after the browser reader disconnects.*  
-*The client reconnects from its last sequence; a backlog above the configured threshold arrives in one snapshot.*
+https://github.com/user-attachments/assets/0cf6a09a-cc3f-40c0-84cf-d819a0f2aa5a
 
 ## Overview
 
@@ -23,7 +20,7 @@ Turning the connection back on attaches with the last in-memory cursor. A backlo
 
 Generation uses OpenRouter chat completions. Set `OPENROUTER_API_KEY` in `.env`.
 
-## The delivery guarantee
+## Delivery guarantees
 
 The server provides at-least-once delivery. A reconnect may race with the final event from the previous connection, so the same sequence can arrive twice.
 
@@ -41,19 +38,25 @@ Each generation has one writer. That writer assigns dense sequence numbers start
 
 ## How generation stays alive
 
-`POST /generations` inserts a generation and starts an asyncio task. The HTTP handler then returns its ID. Streaming output uses a separate request:
+`POST /generations` inserts a generation, starts an asyncio task, and returns its ID without waiting for generation to finish:
 
-```text
+```http
 POST /generations
-        |
-        v
-generator task -> PostgreSQL chunks -> wakeup hub
-                        |
-                        v
-             GET /events?after=N
+Idempotency-Key: <uuid>
 ```
 
-The generator knows nothing about attached readers. It consumes the provider, assigns sequence numbers, and writes small batches in one transaction. Only after a batch commits does it publish a wakeup.
+```json
+{"generation_id":"<uuid>"}
+```
+
+The browser uses that ID in a separate streaming request:
+
+```http
+GET /generations/{id}/events?after=N
+Accept: text/event-stream
+```
+
+The request that started generation no longer owns the provider stream. The generator task consumes the provider, assigns sequence numbers, and writes small batches to PostgreSQL. Only after a batch commits does it publish a wakeup for attached readers.
 
 The write loop waits on three conditions: the next provider delta, cancellation, or the flush deadline. This matters when a provider pauses. A loop driven only by the next delta could leave buffered text uncommitted and ignore a stop request for the length of that pause.
 
