@@ -4,9 +4,9 @@ Production LLM applications need low-latency token delivery without making gener
 
 This project makes token streaming disconnect-tolerant by separating generation from delivery. The server runs each generation in an independent task and records every provider delta in an ordered PostgreSQL log. A browser can disconnect, reload, or attach from another tab, then resume from its last sequence without starting another provider request.
 
-https://github.com/user-attachments/assets/0cf6a09a-cc3f-40c0-84cf-d819a0f2aa5a
-
 **Example of this project's fault tolerance under repeated simulated client-side connection failures.**
+
+https://github.com/user-attachments/assets/0cf6a09a-cc3f-40c0-84cf-d819a0f2aa5a
 
 ## Overview
 
